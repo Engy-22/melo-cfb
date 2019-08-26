@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+
+import argparse
+from datetime import datetime
+import logging
+import os
+import sys
+
+from cfbmodel import data, model
+import pandas as pd
+
+
+logging.basicConfig(
+    stream=sys.stdout,
+    format='[%(levelname)s][%(module)s] %(message)s',
+    level=os.getenv('LOGLEVEL', 'info').upper()
+)
+
+now = datetime.now()
+
+parser = argparse.ArgumentParser(
+    description='College football ratings and predictions'
+)
+
+subparsers = parser.add_subparsers(
+    dest='subparser',
+    help='base functionality',
+)
+
+# update parameters
+update_p = subparsers.add_parser('update')
+
+update_p.add_argument(
+    '--refresh',
+    default=False,
+    action='store_true',
+    help='wipe and rebuild the sql database',
+)
+
+# training parameters
+train_p = subparsers.add_parser('train')
+
+train_p.add_argument(
+    '--steps',
+    default=200,
+    type=int,
+    help='number of training steps',
+)
+
+# prediction parameters
+predict = subparsers.add_parser('predict')
+
+predict.add_argument(
+    'date',
+    type=str,
+    help='game date',
+)
+
+predict.add_argument(
+    'home',
+    type=str,
+    help='home team',
+)
+
+predict.add_argument(
+    'away',
+    type=str,
+    help='away team',
+)
+
+# ranking parameters
+rank = subparsers.add_parser('rank')
+
+args = parser.parse_args()
+kwargs = vars(args)
+subparser = kwargs.pop('subparser')
+
+if subparser == 'update':
+    refresh = kwargs['refresh']
+    data.load_games(refresh=refresh)
+
+elif subparser == 'train':
+    steps = kwargs['steps']
+    for mode in ['spread', 'total']:
+        model.MeloCFB.from_cache(mode, steps=steps, retrain=True)
+
+elif subparser == 'predict':
+    for mode in ['spread', 'total']:
+        melo_cfb = model.MeloCFB.from_cache(mode, retrain=False)
+
+        date, home, away = [
+            kwargs[k] for k in ['date', 'home', 'away']]
+
+        mean = melo_cfb.mean(date, home, away)
+        median = melo_cfb.median(date, home, away)
+
+        msg = "{}: mean = {:.1f}, median = {:.1f}".format(
+            mode.upper(), mean, median)
+
+        logging.info(msg)
+
+elif subparser == 'rank':
+    for mode in ['spread', 'total']:
+        melo_cfb = model.MeloCFB.from_cache(mode, retrain=False)
+        df = pd.DataFrame(melo_cfb.rank(now), columns=['team', f'mean {mode}'])
+        df.index += 1
+
+        print(df.round(decimals=1), '\n')
+
+else:
+    raise ValueError("No such argument {}".format(subparser))
