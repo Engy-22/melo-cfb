@@ -1,15 +1,34 @@
-cfb-model
-=========
+College football model
+======================
 
-*NCAA football ratings and predictions*
+*NCAA college football ratings and predictions*
 
-This module trains the margin-dependent Elo (melo) model on NFL game data. It creates two trained melo class objects, cfb_spreads and cfb_totals, which may be used to predict NCAA football point spreads and point totals. It also provides an interface to optimize the hyperparameters of the model.
+This module trains the margin-dependent Elo (melo) model on college football game data.
 
-Usage
------
+Installation
+------------
+
 ```
-from datetime import datetime
-from melo_cfb import cfb_spreads
+git clone git@github.com:morelandjs/melo-cfb.git && cd melo-cfb
+pip install .
+```
 
-ranked_teams = nfl_spreads.rank(datetime.today(), statistic='median')
+Quick Start
+-----------
+First, populate the database
+```
+cfbmodel update
+```
+Then train the model on the dataset
+```
+cfbmodel train --steps 200
+```
+Finally, compute point spread and point total predictions
+```
+cfbmodel predict 2018-12-30 "Ohio State" Michigan
+cfbmodel predict 2019-09-05 Clemson Alabama
+```
+The model also ranks teams by their mean expected point spread (and point total) against a league average opponent.
+```
+cfbmodel rank
 ```
